@@ -66,4 +66,19 @@ describe GettextSetup do
       expect(FastGettext.locale).to eq('jp')
     end
   end
+  context 'translation repository chain' do
+    before(:all) do
+      GettextSetup.initialize(File::join(File::dirname(File::dirname(__FILE__)), 'fixtures', 'alt_locales'))
+    end
+    it 'chain is not nil' do
+      repos = GettextSetup.class_variable_get(:@@translation_repositories)
+      expect(repos).to be_kind_of(Array)
+    end
+    it 'can translate without switching text domains' do
+      FastGettext.locale = "de"
+      expect(_('Hello, world!')).to eq('Hallo, Welt!')
+      FastGettext.locale = "jp"
+      expect(_('Hello, world!')).to eq('こんにちは世界')
+    end
+  end
 end

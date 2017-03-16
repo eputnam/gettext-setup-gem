@@ -5,6 +5,7 @@ require 'locale'
 
 module GettextSetup
   @@config = nil
+  @@translation_repositories = []
   FastGettext.default_available_locales = []
 
   # `locales_path` should include:
@@ -25,17 +26,37 @@ module GettextSetup
     # Define our text domain, and set the path into our root.  I would prefer to
     # have something smarter, but we really want this up earlier even than our
     # config loading happens so that errors there can be translated.
-    FastGettext.add_text_domain(config['project_name'],
-                                :path => locales_path,
-                                :type => options[:file_format] || :po,
-                                :ignore_fuzzy => false)
-    FastGettext.default_text_domain = config['project_name']
+    repository = build_translation_repository(config['project_name'], options)
+    add_repository_to_chain(repository) unless chain_contains?(repository)
+
+    # 'chain' is the only available multi-domain type in fast_gettext 1.1.0 We should consider
+    # investigating 'merge' once we can bump our dependency
+    FastGettext.add_text_domain('master_domain', type: :chain, chain: @@translation_repositories)
+    FastGettext.default_text_domain = 'master_domain'
 
     # Likewise, be explicit in our default language choice.
     FastGettext.default_locale = default_locale
     FastGettext.default_available_locales = FastGettext.default_available_locales | locales
 
     Locale.set_default(default_locale)
+  end
+
+  def self.build_translation_repository(project_name, options)
+    FastGettext::TranslationRepository.build(project_name,
+                                             :path => locales_path,
+                                             :type => options[:file_format] || :po,
+                                             :ignore_fuzzy => false)
+  end
+
+  def self.add_repository_to_chain(repository)
+    @@translation_repositories.push(repository)
+  end
+
+  def self.chain_contains?(repository)
+    @@translation_repositories.each do |in_chain|
+      return true if repository.instance_variable_get(:@name) == in_chain.instance_variable_get(:@name)
+    end
+    false
   end
 
   def self.locales_path
